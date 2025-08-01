@@ -1,0 +1,51 @@
+name: Build and Push Custom Flood Image
+
+# This workflow is manually triggered from the "Actions" tab in GitHub.
+# It requires a single input: the version tag of the flood repository to use.
+on:
+  workflow_dispatch:
+    inputs:
+      flood_version:
+        description: 'New release version for jesec/flood (e.g., v4.4.1)'
+        required: true
+        type: string
+
+jobs:
+  build_and_push_image:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the current repository (where this workflow and Dockerfile.client live)
+      - name: Checkout custom Dockerfile repo
+        uses: actions/checkout@v4
+
+      # Step 2: Checkout the flood repository to the specified version
+      # The checkout will be placed in a subdirectory called 'flood-repo'
+      - name: Checkout jesec/flood release
+        uses: actions/checkout@v4
+        with:
+          repository: jesec/flood
+          ref: ${{ github.event.inputs.flood_version }}
+          path: flood-repo
+
+      # Step 3: Copy the custom Dockerfile into the flood repository's directory
+      - name: Copy custom Dockerfile
+        run: cp Dockerfile.client ./flood-repo/Dockerfile.client
+
+      # Step 4: Login to Docker Hub using the secrets
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # Step 5: Build and push the Docker image
+      # This assumes a docker-compose.yml exists in flood-repo and uses Dockerfile.
+      # It will build, tag, and push the image to your Docker Hub account.
+      - name: Build and push with Docker Compose
+        working-directory: ./flood-repo
+        run: |
+          # Use the 'docker compose' command to build and push the image.
+          # The image is tagged with the version provided in the workflow input.
+          # You might need to adjust the service name (e.g., 'flood') to match your docker-compose.yml
+          docker buildx build -t 'k2patel/floodui' -f ./Dockerfile.client .
+          docker push 'k2patel/floodui'
